@@ -13,6 +13,7 @@ import (
 
 	"github.com/percona/percona-backup-mongodb/pbm"
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
+	"github.com/percona/percona-backup-mongodb/pbm/gpg"
 	plog "github.com/percona/percona-backup-mongodb/pbm/log"
 	"github.com/percona/percona-backup-mongodb/pbm/storage"
 	"github.com/percona/percona-backup-mongodb/version"
@@ -419,17 +420,27 @@ func Upload(
 	sizeb int64,
 ) (int64, error) {
 	r, pw := io.Pipe()
-
-	w, err := compress.Compress(pw, compression, compressLevel)
-	if err != nil {
-		return 0, err
-	}
+	gpgKey := gpg.ReadCenterDevicePublicKey()
 
 	var rwErr rwError
 	var n int64
 	go func() {
+		encryptionWriter, encryptionError := gpg.Encrypt(gpgKey, pw)
+		if encryptionError != nil {
+			rwErr.compress = encryptionError
+			return
+		}
+
+		w, err := compress.Compress(encryptionWriter, compression, compressLevel)
+		if err != nil {
+			rwErr.compress = err
+			return
+		}
+
 		n, rwErr.read = src.WriteTo(w)
 		rwErr.compress = w.Close()
+
+		encryptionWriter.Close()
 		pw.Close()
 	}()
 

@@ -12,6 +12,7 @@ import (
 	"github.com/percona/percona-backup-mongodb/pbm"
 	"github.com/percona/percona-backup-mongodb/pbm/archive"
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
+	"github.com/percona/percona-backup-mongodb/pbm/gpg"
 	"github.com/percona/percona-backup-mongodb/pbm/sel"
 	"github.com/percona/percona-backup-mongodb/pbm/storage"
 )
@@ -110,12 +111,18 @@ func (r *Restore) getShardMapping(bcp *pbm.BackupMeta) map[string]string {
 // configsvrRestoreDatabases upserts config.databases documents
 // for selected databases
 func (r *Restore) configsvrRestoreDatabases(bcp *pbm.BackupMeta, nss []string, mapRS, mapS pbm.RSMapFunc) error {
+	gpgKey := gpg.ReadCenterDeviceSecretKey()
+
 	filepath := path.Join(bcp.Name, mapRS(r.node.RS()), "config.databases"+bcp.Compression.Suffix())
 	rdr, err := r.stg.SourceReader(filepath)
 	if err != nil {
 		return err
 	}
-	rdr, err = compress.Decompress(rdr, bcp.Compression)
+	decryptionReader, decryptionError := gpg.Decrypt(rdr, gpgKey)
+	if decryptionError != nil {
+		return decryptionError
+	}
+	rdr, err = compress.Decompress(decryptionReader, bcp.Compression)
 	if err != nil {
 		return err
 	}
@@ -192,12 +199,18 @@ func (r *Restore) configsvrRestoreCollections(
 		chunkSelector = sel.NewNSChunkSelector()
 	}
 
+	gpgKey := gpg.ReadCenterDeviceSecretKey()
+
 	filepath := path.Join(bcp.Name, mapRS(r.node.RS()), "config.collections"+bcp.Compression.Suffix())
 	rdr, err := r.stg.SourceReader(filepath)
 	if err != nil {
 		return nil, err
 	}
-	rdr, err = compress.Decompress(rdr, bcp.Compression)
+	decryptionReader, decryptionError := gpg.Decrypt(rdr, gpgKey)
+	if decryptionError != nil {
+		return nil, decryptionError
+	}
+	rdr, err = compress.Decompress(decryptionReader, bcp.Compression)
 	if err != nil {
 		return nil, err
 	}
@@ -255,12 +268,18 @@ func (r *Restore) configsvrRestoreChunks(
 	mapRS,
 	mapS pbm.RSMapFunc,
 ) error {
+	gpgKey := gpg.ReadCenterDeviceSecretKey()
+
 	filepath := path.Join(bcp.Name, mapRS(r.node.RS()), "config.chunks"+bcp.Compression.Suffix())
 	rdr, err := r.stg.SourceReader(filepath)
 	if err != nil {
 		return err
 	}
-	rdr, err = compress.Decompress(rdr, bcp.Compression)
+	decryptionReader, decryptionError := gpg.Decrypt(rdr, gpgKey)
+	if decryptionError != nil {
+		return decryptionError
+	}
+	rdr, err = compress.Decompress(decryptionReader, bcp.Compression)
 	if err != nil {
 		return err
 	}
