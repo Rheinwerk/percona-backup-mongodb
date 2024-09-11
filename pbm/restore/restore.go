@@ -12,6 +12,7 @@ import (
 
 	"github.com/percona/percona-backup-mongodb/pbm"
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
+	"github.com/percona/percona-backup-mongodb/pbm/gpg"
 	"github.com/percona/percona-backup-mongodb/pbm/log"
 	"github.com/percona/percona-backup-mongodb/pbm/oplog"
 	"github.com/percona/percona-backup-mongodb/pbm/storage"
@@ -386,6 +387,8 @@ func replayChunk(
 	stg storage.Storage,
 	c compress.CompressionType,
 ) (primitive.Timestamp, error) {
+	gpgKey := gpg.ReadCenterDeviceSecretKey()
+
 	or, err := stg.SourceReader(file)
 	if err != nil {
 		lts := primitive.Timestamp{}
@@ -393,7 +396,13 @@ func replayChunk(
 	}
 	defer or.Close()
 
-	oplogReader, err := compress.Decompress(or, c)
+	decryptionReader, decryptionError := gpg.Decrypt(or, gpgKey)
+	if decryptionError != nil {
+		lts := primitive.Timestamp{}
+		return lts, errors.Wrap(decryptionError, "gpg decrypt")
+	}
+
+	oplogReader, err := compress.Decompress(decryptionReader, c)
 	if err != nil {
 		lts := primitive.Timestamp{}
 		return lts, errors.Wrapf(err, "decompress object %s", file)

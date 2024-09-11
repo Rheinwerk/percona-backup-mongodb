@@ -9,6 +9,7 @@ import (
 
 	"github.com/percona/percona-backup-mongodb/pbm/archive"
 	"github.com/percona/percona-backup-mongodb/pbm/compress"
+	"github.com/percona/percona-backup-mongodb/pbm/gpg"
 )
 
 type UploadDumpOptions struct {
@@ -31,6 +32,7 @@ func UploadDump(wt io.WriterTo, upload UploadFunc, opts UploadDumpOptions) (int6
 	wg := sync.WaitGroup{}
 	pr, pw := io.Pipe()
 	size := int64(0)
+	gpgKey := gpg.ReadCenterDevicePublicKey()
 
 	go func() {
 		_, err := wt.WriteTo(pw)
@@ -62,9 +64,17 @@ func UploadDump(wt io.WriterTo, upload UploadFunc, opts UploadDumpOptions) (int6
 			return pw, nil
 		}
 
-		w, err := compress.Compress(pw, opts.Compression, opts.CompressionLevel)
-		dwc := io.WriteCloser(&delegatedWriteCloser{w, pw})
-		return dwc, errors.WithMessagef(err, "create compressor: %q", ns)
+		encryptionWriter, encryptionError := gpg.Encrypt(gpgKey, pw)
+		encryptionDelegatedWriter := io.WriteCloser(&delegatedWriteCloser{encryptionWriter, pw})
+
+		if encryptionError != nil {
+			return encryptionDelegatedWriter, errors.Wrap(encryptionError, "gpg encrypt")
+		}
+
+		compressionWriter, err := compress.Compress(encryptionDelegatedWriter, opts.Compression, opts.CompressionLevel)
+		compressionDelegatedWriter := io.WriteCloser(&delegatedWriteCloser{compressionWriter, encryptionDelegatedWriter})
+
+		return compressionDelegatedWriter, errors.WithMessagef(err, "create compressor: %q", ns)
 	}
 
 	err := archive.Decompose(pr, newWriter, opts.NSFilter, opts.DocFilter)
@@ -80,6 +90,7 @@ func DownloadDump(
 	match archive.NSFilterFn,
 ) (io.ReadCloser, error) {
 	pr, pw := io.Pipe()
+	gpgKey := gpg.ReadCenterDeviceSecretKey()
 
 	go func() {
 		newReader := func(ns string) (io.ReadCloser, error) {
@@ -96,8 +107,14 @@ func DownloadDump(
 				return r, nil
 			}
 
-			r, err = compress.Decompress(r, compression)
-			return r, errors.WithMessagef(err, "create decompressor: %q", ns)
+			decryptionReader, decryptionError := gpg.Decrypt(r, gpgKey)
+			if decryptionError != nil {
+				return r, errors.Wrap(decryptionError, "gpg decrypt")
+			}
+
+			decompressReader, err := compress.Decompress(decryptionReader, compression)
+			return decompressReader, errors.WithMessagef(err, "create decompressor: %q", ns)
+
 		}
 
 		err := archive.Compose(pw, match, newReader)
