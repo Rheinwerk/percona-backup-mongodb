@@ -29,6 +29,7 @@ var ExcludeFromRestore = []string{
 	pbm.DB + "." + pbm.PITRChunksCollection,
 	pbm.DB + "." + pbm.AgentsStatusCollection,
 	pbm.DB + "." + pbm.PBMOpLogCollection,
+	"admin.system.version",
 	"config.version",
 	"config.mongos",
 	"config.lockpings",
@@ -39,9 +40,10 @@ var ExcludeFromRestore = []string{
 	"config.transactions",
 	"config.transaction_coordinators",
 	"config.changelog",
+	"config.actionlog",
 	"config.image_collection",
-	"admin.system.version",
 	"config.system.indexBuilds",
+	"config.system.sharding_ddl_coordinators",
 
 	// deprecated PBM collections, keep it here not to bring back from old backups
 	pbm.DB + ".pbmBackups.old",
