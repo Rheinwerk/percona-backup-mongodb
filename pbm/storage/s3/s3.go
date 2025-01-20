@@ -5,6 +5,9 @@ import (
 	"crypto/tls"
 	"encoding/base64"
 	"fmt"
+	"golang.org/x/crypto/openpgp"
+	"golang.org/x/crypto/openpgp/armor"
+	"golang.org/x/crypto/openpgp/packet"
 	"io"
 	"net/http"
 	"net/url"
@@ -262,6 +265,20 @@ func (*S3) Type() storage.Type {
 }
 
 func (s *S3) Save(name string, data io.Reader, sizeb int64) error {
+
+	var encryptedData io.Reader
+
+	switch {
+	case strings.HasSuffix(name, "metadata.json") || strings.HasSuffix(name, ".pbm.json"):
+		encryptedData = data
+	default:
+		var err error
+		encryptedData, err = encryptWithGPG(data)
+		if err != nil {
+			return errors.Wrap(err, "encrypt with gpg")
+		}
+	}
+
 	switch s.opts.Provider {
 	default:
 		awsSession, err := s.session()
@@ -276,7 +293,7 @@ func (s *S3) Save(name string, data io.Reader, sizeb int64) error {
 		uplInput := &s3manager.UploadInput{
 			Bucket:       aws.String(s.opts.Bucket),
 			Key:          aws.String(path.Join(s.opts.Prefix, name)),
-			Body:         data,
+			Body:         encryptedData,
 			StorageClass: &s.opts.StorageClass,
 		}
 
@@ -373,7 +390,7 @@ func (s *S3) Save(name string, data io.Reader, sizeb int64) error {
 			}
 		}
 
-		_, err = mc.PutObject(s.opts.Bucket, path.Join(s.opts.Prefix, name), data, -1, putOpts)
+		_, err = mc.PutObject(s.opts.Bucket, path.Join(s.opts.Prefix, name), encryptedData, -1, putOpts)
 		return errors.Wrap(err, "upload to GCS")
 	}
 }
@@ -600,4 +617,92 @@ func awsLogger(l *log.Event) aws.Logger {
 
 		l.Debug(msg, xs...)
 	})
+}
+
+const (
+	KeyPath         = "/etc/pbm-agent/"
+	KeyFilename     = "backup@centerdevice.de"
+	SecretKeySuffix = ".sec"
+	PublicKeySuffix = ".pub"
+	SecretKeyPath   = KeyPath + KeyFilename + SecretKeySuffix
+	PublicKeyPath   = KeyPath + KeyFilename + PublicKeySuffix
+)
+
+func readCenterDeviceSecretKey() openpgp.EntityList {
+	f, err := os.Open(SecretKeyPath)
+	if err != nil {
+		panic(fmt.Sprintf("Could not read gpg sec key: %s", SecretKeyPath))
+	}
+	defer f.Close()
+	entityList, err := openpgp.ReadArmoredKeyRing(f)
+	if err != nil {
+		panic(fmt.Sprintf("Could not read gpg sec key: %s", SecretKeyPath))
+	}
+	return entityList
+}
+
+func readCenterDevicePublicKey() *openpgp.Entity {
+	f, err := os.Open(PublicKeyPath)
+	if err != nil {
+		panic(fmt.Sprintf("Could not read gpg pub key: %s", PublicKeyPath))
+	}
+	defer f.Close()
+
+	block, err := armor.Decode(f)
+	if err != nil {
+		panic(fmt.Sprintf("Could not read gpg pub key: %s", PublicKeyPath))
+	}
+
+	entity, err := openpgp.ReadEntity(packet.NewReader(block.Body))
+	if err != nil {
+		panic(fmt.Sprintf("Could not read gpg pub key: %s", PublicKeyPath))
+	}
+
+	return entity
+}
+
+func encryptWithGPG(data io.Reader) (io.Reader, error) {
+	r, w := io.Pipe()
+
+	go func() {
+		defer w.Close()
+
+		encryptedWriter, err := openpgp.Encrypt(w, []*openpgp.Entity{readCenterDevicePublicKey()}, nil, nil, nil)
+		if err != nil {
+			w.CloseWithError(err)
+			return
+		}
+
+		_, err = io.Copy(encryptedWriter, data)
+		if err != nil {
+			w.CloseWithError(err)
+			return
+		}
+
+		if err := encryptedWriter.Close(); err != nil {
+			w.CloseWithError(err)
+		}
+	}()
+
+	return r, nil
+}
+
+func decryptWithGPG(data io.ReadCloser) (io.ReadCloser, error) {
+	r, w := io.Pipe()
+
+	go func() {
+		defer w.Close()
+
+		_, err := io.Copy(w, data)
+		if err != nil {
+			w.CloseWithError(err)
+		}
+	}()
+
+	decryptedReader, err := openpgp.ReadMessage(r, readCenterDeviceSecretKey(), nil, nil)
+	if err != nil {
+		return data, errors.Wrap(err, "gpg read message")
+	}
+
+	return io.NopCloser(decryptedReader.UnverifiedBody), nil
 }

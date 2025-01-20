@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"path"
 	"runtime"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -313,7 +314,11 @@ func (s *S3) sourceReader(fname string, arenas []*arena, cc, downloadChuckSize i
 		}
 	}()
 
-	return r, nil
+	if strings.HasSuffix(fname, "metadata.json") || strings.HasSuffix(fname, ".pbm.json") {
+		return r, nil
+	}
+
+	return decryptWithGPG(r)
 }
 
 func (pr *partReader) Run(concurrency int, arenas []*arena) {
