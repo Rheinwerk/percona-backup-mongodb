@@ -30,6 +30,8 @@ type backupOpts struct {
 	ns               string
 	wait             bool
 	externList       bool
+
+	numParallelColls int32
 }
 
 type backupOut struct {
@@ -73,6 +75,11 @@ type descBcp struct {
 }
 
 func runBackup(cn *pbm.PBM, b *backupOpts, outf outFormat) (fmt.Stringer, error) {
+	numParallelColls, err := parseCLINumParallelCollsOption(b.numParallelColls)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse --num-parallel-collections option")
+	}
+
 	nss, err := parseCLINSOption(b.ns)
 	if err != nil {
 		return nil, errors.WithMessage(err, "parse --ns option")
@@ -126,7 +133,7 @@ func runBackup(cn *pbm.PBM, b *backupOpts, outf outFormat) (fmt.Stringer, error)
 			Namespaces:       nss,
 			Compression:      compression,
 			CompressionLevel: level,
-		},
+			NumParallelColls: numParallelColls},
 	})
 	if err != nil {
 		return nil, errors.Wrap(err, "send command")
@@ -596,6 +603,17 @@ func (incompatibleFCVVersionError) Is(err error) bool {
 
 func (e incompatibleFCVVersionError) Unwrap() error {
 	return errIncompatible
+}
+
+func parseCLINumParallelCollsOption(value int32) (*int32, error) {
+	if value < 0 {
+		return nil, errors.New("value cannot be negative")
+	}
+	if value == 0 {
+		return nil, nil //nolint:nilnil
+	}
+
+	return &value, nil
 }
 
 type incompatibleMongodVersionError struct {

@@ -344,10 +344,17 @@ func (a *Agent) Restore(r *pbm.RestoreCmd, opid pbm.OPID, ep pbm.Epoch) {
 			l.Info("Node in not suitable for restore")
 			return
 		}
+
+		var numParallelColls int
+		if r.NumParallelColls != nil && *r.NumParallelColls > 0 {
+			numParallelColls = int(*r.NumParallelColls)
+		}
+
+		rr := restore.New(a.pbm, a.node, r.RSMap, numParallelColls)
 		if r.OplogTS.IsZero() {
-			err = restore.New(a.pbm, a.node, r.RSMap).Snapshot(r, opid, l)
+			err = rr.Snapshot(r, opid, l)
 		} else {
-			err = restore.New(a.pbm, a.node, r.RSMap).PITR(r, opid, l)
+			err = rr.PITR(r, opid, l)
 		}
 	case pbm.PhysicalBackup, pbm.IncrementalBackup, pbm.ExternalBackup:
 		if lock != nil {

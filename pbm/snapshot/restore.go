@@ -97,7 +97,6 @@ func NewRestore(uri string, cfg *pbm.Config) (io.ReaderFrom, error) {
 		BypassDocumentValidation: true,
 		Drop:                     true,
 		NumInsertionWorkers:      numInsertionWorkers,
-		NumParallelCollections:   1,
 		PreserveUUID:             preserveUUID,
 		StopOnError:              true,
 		WriteConcern:             "majority",

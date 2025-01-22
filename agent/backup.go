@@ -98,7 +98,7 @@ func (a *Agent) Backup(cmd *pbm.BackupCmd, opid pbm.OPID, ep pbm.Epoch) {
 	case pbm.LogicalBackup:
 		fallthrough
 	default:
-		bcp = backup.New(a.pbm, a.node)
+		bcp = backup.New(a.pbm, a.node, a.numParallelColls)
 	}
 
 	cfg, err := a.pbm.GetConfig()

@@ -22,11 +22,7 @@ type backuper struct {
 	stopC chan struct{}
 }
 
-func NewBackup(curi string, conns int, d, c string) (io.WriterTo, error) {
-	if conns <= 0 {
-		conns = 1
-	}
-
+func NewBackup(curi string, maxParallelColls int, d, c string) (io.WriterTo, error) {
 	var err error
 
 	opts := options.New("pbm-agent:dump", version.Current().Version, "", "", false,
@@ -51,6 +47,10 @@ func NewBackup(curi string, conns int, d, c string) (io.WriterTo, error) {
 		}
 	}
 
+	if maxParallelColls < 1 {
+		maxParallelColls = 1
+	}
+
 	backup := &backuper{}
 
 	backup.pm = progress.NewBarWriter(&progressWriter{}, time.Second*60, 24, false)
@@ -61,7 +61,7 @@ func NewBackup(curi string, conns int, d, c string) (io.WriterTo, error) {
 			// instead of creating a file. This is not clear at plain sight,
 			// you nee to look the code to discover it.
 			Archive:                "-",
-			NumParallelCollections: conns,
+			NumParallelCollections: maxParallelColls,
 		},
 		InputOptions:      &mongodump.InputOptions{},
 		SessionProvider:   &db.SessionProvider{},

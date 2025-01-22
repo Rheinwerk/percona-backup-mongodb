@@ -60,7 +60,10 @@ func (a *Agent) OplogReplay(r *pbm.ReplayCmd, opID pbm.OPID, ep pbm.Epoch) {
 	}()
 
 	l.Info("oplog replay started")
-	if err := restore.New(a.pbm, a.node, r.RSMap).ReplayOplog(r, opID, l); err != nil {
+
+	rr := restore.New(a.pbm, a.node, r.RSMap, 0)
+	err = rr.ReplayOplog(r, opID, l)
+	if err != nil {
 		if errors.Is(err, restore.ErrNoDataForShard) {
 			l.Info("no oplog for the shard, skipping")
 		} else {

@@ -15,12 +15,12 @@ import (
 )
 
 type Node struct {
-	rs        string
-	me        string
-	ctx       context.Context
-	cn        *mongo.Client
-	curi      string
-	dumpConns int
+	rs               string
+	me               string
+	ctx              context.Context
+	cn               *mongo.Client
+	curi             string
+	numParallelColls int
 }
 
 // ReplsetRole is a replicaset role in sharded cluster
@@ -38,11 +38,11 @@ const (
 	TmpRolesCollection = `pbmRRoles`
 )
 
-func NewNode(ctx context.Context, curi string, dumpConns int) (*Node, error) {
+func NewNode(ctx context.Context, curi string, numParallelColls int) (*Node, error) {
 	n := &Node{
-		ctx:       ctx,
-		curi:      curi,
-		dumpConns: dumpConns,
+		ctx:              ctx,
+		curi:             curi,
+		numParallelColls: numParallelColls,
 	}
 	err := n.Connect()
 	if err != nil {
@@ -219,8 +219,8 @@ func (n *Node) ConnURI() string {
 	return n.curi
 }
 
-func (n *Node) DumpConns() int {
-	return n.dumpConns
+func (n *Node) NumParallelColls() int {
+	return n.numParallelColls
 }
 
 func (n *Node) Session() *mongo.Client {

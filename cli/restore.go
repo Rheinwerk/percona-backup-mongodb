@@ -31,6 +31,8 @@ type restoreOpts struct {
 	rsMap    string
 	conf     string
 	ts       string
+
+	numParallelColls int32
 }
 
 type restoreRet struct {
@@ -90,6 +92,10 @@ func (r externRestoreRet) String() string {
 }
 
 func runRestore(cn *pbm.PBM, o *restoreOpts, outf outFormat) (fmt.Stringer, error) {
+	numParallelColls, err := parseCLINumParallelCollsOption(o.numParallelColls)
+	if err != nil {
+		return nil, errors.Wrap(err, "parse --num-parallel-collections option")
+	}
 	nss, err := parseCLINSOption(o.ns)
 	if err != nil {
 		return nil, errors.WithMessage(err, "parse --ns option")
@@ -110,7 +116,7 @@ func runRestore(cn *pbm.PBM, o *restoreOpts, outf outFormat) (fmt.Stringer, erro
 	}
 	tdiff := time.Now().Unix() - int64(clusterTime.T)
 
-	m, err := restore(cn, o, nss, rsMap, outf)
+	m, err := restore(cn, o, numParallelColls, nss, rsMap, outf)
 	if err != nil {
 		return nil, err
 	}
@@ -277,6 +283,7 @@ func checkBackup(cn *pbm.PBM, o *restoreOpts, nss []string) (string, pbm.BackupT
 func restore(
 	cn *pbm.PBM,
 	o *restoreOpts,
+	numParallelColls *int32,
 	nss []string,
 	rsMapping map[string]string,
 	outf outFormat,
@@ -295,11 +302,12 @@ func restore(
 	cmd := pbm.Cmd{
 		Cmd: pbm.CmdRestore,
 		Restore: &pbm.RestoreCmd{
-			Name:       name,
-			BackupName: bcp,
-			Namespaces: nss,
-			RSMap:      rsMapping,
-			External:   o.extern,
+			Name:             name,
+			BackupName:       bcp,
+			NumParallelColls: numParallelColls,
+			Namespaces:       nss,
+			RSMap:            rsMapping,
+			External:         o.extern,
 		},
 	}
 	if o.pitr != "" {

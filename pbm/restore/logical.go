@@ -36,6 +36,8 @@ type Restore struct {
 	stopHB   chan struct{}
 	nodeInfo *pbm.NodeInfo
 	stg      storage.Storage
+
+	numParallelColls int
 	// Shards to participate in restore. Num of shards in bcp could
 	// be less than in the cluster and this is ok. Only these shards
 	// would be expected to run restore (distributed transactions sync,
@@ -57,7 +59,7 @@ type Restore struct {
 }
 
 // New creates a new restore object
-func New(cn *pbm.PBM, node *pbm.Node, rsMap map[string]string) *Restore {
+func New(cn *pbm.PBM, node *pbm.Node, rsMap map[string]string, numParallelColls int) *Restore {
 	if rsMap == nil {
 		rsMap = make(map[string]string)
 	}
@@ -66,6 +68,8 @@ func New(cn *pbm.PBM, node *pbm.Node, rsMap map[string]string) *Restore {
 		cn:    cn,
 		node:  node,
 		rsMap: rsMap,
+
+		numParallelColls: numParallelColls,
 
 		indexCatalog: idx.NewIndexCatalog(),
 	}
@@ -691,7 +695,8 @@ func (r *Restore) RunSnapshot(dump string, bcp *pbm.BackupMeta, nss []string) er
 				return rdr, nil
 			},
 			bcp.Compression,
-			sel.MakeSelectedPred(nss))
+			sel.MakeSelectedPred(nss),
+			r.numParallelColls)
 	}
 	if err != nil {
 		return err

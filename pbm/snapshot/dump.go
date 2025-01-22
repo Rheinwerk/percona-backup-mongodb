@@ -78,6 +78,7 @@ func DownloadDump(
 	download DownloadFunc,
 	compression compress.CompressionType,
 	match archive.NSFilterFn,
+	numParallelColls int,
 ) (io.ReadCloser, error) {
 	pr, pw := io.Pipe()
 
@@ -100,7 +101,7 @@ func DownloadDump(
 			return r, errors.WithMessagef(err, "create decompressor: %q", ns)
 		}
 
-		err := archive.Compose(pw, match, newReader)
+		err := archive.Compose(pw, match, newReader, numParallelColls)
 		pw.CloseWithError(errors.WithMessage(err, "compose"))
 	}()
 

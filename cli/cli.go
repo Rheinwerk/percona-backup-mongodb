@@ -119,6 +119,8 @@ func Main() {
 		BoolVar(&backup.base)
 	backupCmd.Flag("compression-level", "Compression level (specific to the compression type)").
 		IntsVar(&backup.compressionLevel)
+	backupCmd.Flag("num-parallel-collections", "Number of parallel collections").
+		Int32Var(&backup.numParallelColls)
 	backupCmd.Flag("ns", `Namespaces to backup (e.g. "db.*", "db.collection"). If not set, backup all ("*.*")`).
 		StringVar(&backup.ns)
 	backupCmd.Flag("wait", "Wait for the backup to finish").
@@ -160,6 +162,8 @@ func Main() {
 	restoreCmd.Flag("base-snapshot",
 		"Override setting: Name of older snapshot that PITR will be based on during restore.").
 		StringVar(&restore.pitrBase)
+	restoreCmd.Flag("num-parallel-collections", "Number of parallel collections").
+		Int32Var(&restore.numParallelColls)
 	restoreCmd.Flag("ns", `Namespaces to restore (e.g. "db1.*,db2.collection2"). If not set, restore all ("*.*")`).
 		StringVar(&restore.ns)
 	restoreCmd.Flag("wait", "Wait for the restore to finish.").

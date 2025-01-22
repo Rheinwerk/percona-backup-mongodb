@@ -27,6 +27,8 @@ type Agent struct {
 	mx      sync.Mutex
 	log     *log.Logger
 
+	numParallelColls int
+
 	closeCMD chan struct{}
 	pauseHB  int32
 

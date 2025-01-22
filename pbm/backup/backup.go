@@ -19,18 +19,20 @@ import (
 )
 
 type Backup struct {
-	cn       *pbm.PBM
-	node     *pbm.Node
-	typ      pbm.BackupType
-	incrBase bool
-	timeouts *pbm.BackupTimeouts
+	cn               *pbm.PBM
+	node             *pbm.Node
+	typ              pbm.BackupType
+	incrBase         bool
+	timeouts         *pbm.BackupTimeouts
+	numParallelColls int
 }
 
-func New(cn *pbm.PBM, node *pbm.Node) *Backup {
+func New(cn *pbm.PBM, node *pbm.Node, dumpConns int) *Backup {
 	return &Backup{
-		cn:   cn,
-		node: node,
-		typ:  pbm.LogicalBackup,
+		cn:               cn,
+		node:             node,
+		typ:              pbm.LogicalBackup,
+		numParallelColls: dumpConns,
 	}
 }
 

@@ -118,7 +118,17 @@ func (b *Backup) doLogical(
 	if len(nssSize) == 0 {
 		dump = snapshot.DummyBackup{}
 	} else {
-		dump, err = snapshot.NewBackup(b.node.ConnURI(), b.node.DumpConns(), db, coll)
+		numParallelColls := b.numParallelColls
+		if bcp.NumParallelColls != nil {
+			if *bcp.NumParallelColls > 0 {
+				numParallelColls = int(*bcp.NumParallelColls)
+			} else {
+				l.Warning("invalid value of NumParallelCollections (%v). fallback to %v",
+					numParallelColls, b.numParallelColls)
+			}
+		}
+
+		dump, err = snapshot.NewBackup(b.node.ConnURI(), numParallelColls, db, coll)
 		if err != nil {
 			return errors.Wrap(err, "init mongodump options")
 		}
