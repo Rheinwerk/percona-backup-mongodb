@@ -1,0 +1,11 @@
+backup:
+  compression: gzip
+storage:
+  type: s3
+  s3:
+    region: eu-central-1
+    bucket: cd.pbm.test
+    prefix: mongodb-backups
+    credentials:
+        access-key-id: XXX
+        secret-access-key: XXX

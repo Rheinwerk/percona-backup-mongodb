@@ -1,0 +1,21 @@
+{
+	"name": "Go & MongoDB Dev Container",
+
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "app",
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+
+	"customizations": {
+		"vscode": {
+			"settings": {
+				"go.toolsManagement.checkForUpdates": "local",
+				"go.useLanguageServer": true,
+				"go.gopath": "/usr/bin/go"
+			},
+			"extensions": [
+				"golang.go",
+				"mongodb.mongodb-vscode"
+			]
+		}
+	}
+}
