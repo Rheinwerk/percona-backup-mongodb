@@ -1,0 +1,8 @@
+backup:
+  compression: none
+storage:
+  type: s3
+  s3:
+    region: eu-central-1
+    bucket: pbm-development
+    prefix: mongodb-backups
