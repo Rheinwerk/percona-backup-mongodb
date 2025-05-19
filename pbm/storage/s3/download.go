@@ -16,6 +16,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/s3"
 
+	"github.com/percona/percona-backup-mongodb/pbm/encrypt"
 	"github.com/percona/percona-backup-mongodb/pbm/errors"
 	"github.com/percona/percona-backup-mongodb/pbm/log"
 )
@@ -313,7 +314,7 @@ func (s *S3) sourceReader(fname string, arenas []*arena, cc, downloadChuckSize i
 		}
 	}()
 
-	return r, nil
+	return encrypt.DecryptFileWithGPG(fname, r)
 }
 
 func (pr *partReader) Run(concurrency int, arenas []*arena) {
