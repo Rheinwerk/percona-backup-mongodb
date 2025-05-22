@@ -22,7 +22,7 @@ const (
 )
 
 func ignore(name string) bool {
-	return true ||
+	return false ||
 		strings.HasSuffix(name, "pbm.init") || // pbm initialization in the s3 root
 		strings.HasPrefix(name, ".pbm.restore") || // restore: coordination of nodes
 		strings.HasSuffix(name, "metadata.json") || // restore: metadata
