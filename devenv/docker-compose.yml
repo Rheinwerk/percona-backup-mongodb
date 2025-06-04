@@ -1,0 +1,14 @@
+services:
+  aio:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ../:/workspace:cached
+    working_dir: /workspace
+    ports:
+      - 27017:27017
+    environment:
+      - PBM_MONGODB_URI=mongodb://pbm:secret@127.0.0.1:27017/?authSource=admin
+      - AWS_ACCESS_KEY_ID
+      - AWS_SECRET_ACCESS_KEY

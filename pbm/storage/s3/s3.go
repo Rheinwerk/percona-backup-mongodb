@@ -26,6 +26,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/aws/aws-sdk-go/service/sts"
 
+	"github.com/percona/percona-backup-mongodb/pbm/encrypt"
 	"github.com/percona/percona-backup-mongodb/pbm/errors"
 	"github.com/percona/percona-backup-mongodb/pbm/log"
 	"github.com/percona/percona-backup-mongodb/pbm/storage"
@@ -317,10 +318,15 @@ func (s *S3) Save(name string, data io.Reader, sizeb int64) error {
 		cc = 1
 	}
 
+	encryptedData, err := encrypt.EncryptFileWithGPG(name, data)
+	if err != nil {
+		return errors.Wrap(err, "encrypt setup failed")
+	}
+
 	uplInput := &s3manager.UploadInput{
 		Bucket:       aws.String(s.opts.Bucket),
 		Key:          aws.String(path.Join(s.opts.Prefix, name)),
-		Body:         data,
+		Body:         encryptedData,
 		StorageClass: &s.opts.StorageClass,
 	}
 
