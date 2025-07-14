@@ -92,18 +92,40 @@ func DecryptFileWithGPG(name string, data io.ReadCloser) (io.ReadCloser, error) 
 	return decryptWithGPG(data)
 }
 
-func decryptWithGPG(encryptedData io.Reader) (io.ReadCloser, error) {
+func decryptWithGPG(encryptedData io.ReadCloser) (io.ReadCloser, error) {
 	privateKey, err := readCenterDevicePrivateKey()
 	if err != nil {
+		encryptedData.Close()
 		return nil, err
 	}
 
 	md, err := openpgp.ReadMessage(encryptedData, privateKey, nil, nil)
 	if err != nil {
+		encryptedData.Close()
 		return nil, err
 	}
 
-	return io.NopCloser(md.UnverifiedBody), nil
+	// Create a wrapper that closes the input reader
+	wrapper := &decryptWrapper{
+		body:      md.UnverifiedBody,
+		srcCloser: encryptedData,
+	}
+
+	return wrapper, nil
+}
+
+// decryptWrapper wraps the decrypted message body and ensures the source reader is closed
+type decryptWrapper struct {
+	body      io.Reader
+	srcCloser io.ReadCloser
+}
+
+func (d *decryptWrapper) Read(p []byte) (int, error) {
+	return d.body.Read(p)
+}
+
+func (d *decryptWrapper) Close() error {
+	return d.srcCloser.Close()
 }
 
 func readCenterDevicePrivateKey() (openpgp.EntityList, error) {
